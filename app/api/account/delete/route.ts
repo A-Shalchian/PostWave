@@ -63,6 +63,22 @@ export async function POST() {
       )
     }
 
+    // Delete avatar from storage
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('avatar_url')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.avatar_url) {
+      try {
+        const avatarPath = profile.avatar_url.split('/').slice(-2).join('/')
+        await supabase.storage.from('avatars').remove([avatarPath])
+      } catch (error) {
+        console.warn('Failed to delete avatar:', error)
+      }
+    }
+
     // Delete all videos from storage
     const { data: videos } = await supabase
       .from('videos')
