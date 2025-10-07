@@ -54,8 +54,37 @@ export async function DELETE(
   }
 
   try {
-    // Delete from database
-    // The on_video_deleted trigger will automatically delete files from storage
+    // First, get the video to find the file path
+    const { data: video, error: fetchError } = await supabase
+      .from('videos')
+      .select('file_path, thumbnail_path')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Video not found' }, { status: 404 })
+      }
+      throw fetchError
+    }
+
+    // Delete from storage first
+    const filesToDelete = [video.file_path]
+    if (video.thumbnail_path) {
+      filesToDelete.push(video.thumbnail_path)
+    }
+
+    const { error: storageError } = await supabase.storage
+      .from('videos')
+      .remove(filesToDelete)
+
+    if (storageError) {
+      console.error('Storage delete error:', storageError)
+      // Continue anyway - we still want to delete the DB record
+    }
+
+    // Then delete from database
     const { error: deleteError } = await supabase
       .from('videos')
       .delete()
