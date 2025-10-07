@@ -27,8 +27,18 @@ export default async function Dashboard() {
   // Get user's connected platforms
   let connections: Connection[] = []
   let videos: Video[] = []
+  let avatarUrl: string | null = null
 
   if (user) {
+    // Get user profile for avatar
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('avatar_url')
+      .eq('id', user.id)
+      .single()
+
+    avatarUrl = profile?.avatar_url || null
+
     const { data: connectionsData } = await supabase
       .from('social_connections')
       .select('platform, platform_username, is_active')
@@ -60,7 +70,7 @@ export default async function Dashboard() {
       <nav className="bg-slate-900/50 backdrop-blur-sm border-b border-slate-800 px-6 py-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">PostWave</h1>
-          {user && <UserMenu userEmail={user.email || ''} />}
+          {user && <UserMenu userEmail={user.email || ''} avatarUrl={avatarUrl} />}
         </div>
       </nav>
 
@@ -166,7 +176,7 @@ export default async function Dashboard() {
             </div>
 
             {/* Video Upload Section */}
-            {isConnected('youtube') && <VideoUpload />}
+            <VideoUpload />
 
             {/* Video List Section */}
             {videos.length > 0 && (
