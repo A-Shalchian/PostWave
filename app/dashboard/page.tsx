@@ -2,11 +2,23 @@ import { createClient } from '@/lib/supabase/server'
 import SignInButton from '@/components/SignInButton'
 import SignOutButton from '@/components/SignOutButton'
 import ConnectButton from '@/components/ConnectButton'
+import VideoUpload from '@/components/VideoUpload'
+import VideoList from '@/components/VideoList'
+import DeleteAccountButton from '@/components/DeleteAccountButton'
 
 type Connection = {
   platform: string
   platform_username?: string | null
   is_active?: boolean
+}
+
+type Video = {
+  id: string
+  title: string
+  file_name: string
+  file_size: number
+  created_at: string
+  status: string
 }
 
 export default async function Dashboard() {
@@ -15,14 +27,25 @@ export default async function Dashboard() {
 
   // Get user's connected platforms
   let connections: Connection[] = []
+  let videos: Video[] = []
+
   if (user) {
-    const { data } = await supabase
+    const { data: connectionsData } = await supabase
       .from('social_connections')
       .select('platform, platform_username, is_active')
       .eq('user_id', user.id)
       .eq('is_active', true)
 
-    connections = data || []
+    connections = connectionsData || []
+
+    // Get user's videos
+    const { data: videosData } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    videos = videosData || []
   }
 
   const isConnected = (platform: string) => {
@@ -140,6 +163,28 @@ export default async function Dashboard() {
                     className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white py-3 rounded-lg hover:from-purple-600 hover:via-pink-600 hover:to-orange-600 transition-all duration-300 ease-out font-medium hover:scale-105 active:scale-95 shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 cursor-pointer"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Video Upload Section */}
+            {isConnected('youtube') && <VideoUpload />}
+
+            {/* Video List Section */}
+            {videos.length > 0 && (
+              <VideoList
+                videos={videos}
+                hasYouTubeConnection={isConnected('youtube')}
+              />
+            )}
+
+            {/* Account Settings */}
+            <div className="bg-slate-900/50 backdrop-blur border border-slate-800 rounded-2xl p-8">
+              <h3 className="text-2xl font-semibold mb-2 text-white">Account Settings</h3>
+              <p className="text-slate-300 mb-6">
+                Manage your account and data
+              </p>
+              <div className="max-w-md">
+                <DeleteAccountButton />
               </div>
             </div>
           </div>
