@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Toast from './Toast'
 
 export default function DeleteAccountButton() {
   const [showModal, setShowModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [summary, setSummary] = useState<any>(null)
+  const [confirmText, setConfirmText] = useState('')
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const router = useRouter()
 
   const fetchSummary = async () => {
@@ -23,14 +26,11 @@ export default function DeleteAccountButton() {
 
   const handleDeleteClick = () => {
     fetchSummary()
+    setConfirmText('')
     setShowModal(true)
   }
 
   const handleConfirmDelete = async () => {
-    if (!confirm('Are you absolutely sure? This action cannot be undone.')) {
-      return
-    }
-
     setDeleting(true)
 
     try {
@@ -39,19 +39,23 @@ export default function DeleteAccountButton() {
       })
 
       if (response.ok) {
-        alert('Your account has been deleted successfully.')
-        router.push('/')
-        router.refresh()
+        setShowModal(false)
+        setToast({ message: 'Your account has been deleted successfully.', type: 'success' })
+        setTimeout(() => {
+          router.push('/')
+          router.refresh()
+        }, 2000)
       } else {
         const error = await response.json()
-        alert(`Failed to delete account: ${error.error}`)
+        setShowModal(false)
+        setToast({ message: `Failed to delete account: ${error.error}`, type: 'error' })
       }
     } catch (error) {
       console.error('Delete account error:', error)
-      alert('Failed to delete account. Please try again.')
+      setShowModal(false)
+      setToast({ message: 'Failed to delete account. Please try again.', type: 'error' })
     } finally {
       setDeleting(false)
-      setShowModal(false)
     }
   }
 
@@ -65,6 +69,14 @@ export default function DeleteAccountButton() {
 
   return (
     <>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <button
         onClick={handleDeleteClick}
         className="w-full bg-red-900/30 text-red-400 py-3 rounded-lg font-medium hover:bg-red-900/50 transition-all duration-300 ease-out hover:scale-105 active:scale-95 cursor-pointer border border-red-800/50"
@@ -121,6 +133,23 @@ export default function DeleteAccountButton() {
                 </p>
               </div>
 
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="text-slate-300 text-sm font-medium">
+                    Type <span className="text-red-400 font-bold">DELETE ACCOUNT</span> to confirm:
+                  </span>
+                  <input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="DELETE ACCOUNT"
+                    disabled={deleting}
+                    className="mt-2 w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowModal(false)}
@@ -131,7 +160,7 @@ export default function DeleteAccountButton() {
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  disabled={deleting}
+                  disabled={deleting || confirmText !== 'DELETE ACCOUNT'}
                   className="flex-1 bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-all duration-300 ease-out hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   {deleting ? 'Deleting...' : 'Delete Forever'}
