@@ -17,6 +17,13 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     redirect('/dashboard')
   }
 
+  // Get user profile for avatar
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('avatar_url')
+    .eq('id', user.id)
+    .single()
+
   // Get video details
   const { data: video, error } = await supabase
     .from('videos')
@@ -74,7 +81,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
             PostWave
           </h1>
-          <UserMenu userEmail={user.email || ''} />
+          <UserMenu userEmail={user.email || ''} avatarUrl={profile?.avatar_url} />
         </div>
       </nav>
 
