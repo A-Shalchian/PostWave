@@ -6,6 +6,7 @@ import Link from 'next/link'
 import VideoPlayer from '@/components/VideoPlayer'
 import DownloadButton from '@/components/DownloadButton'
 import DeleteVideoButton from '@/components/DeleteVideoButton'
+import UserMenu from '@/components/UserMenu'
 
 export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -73,7 +74,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
             PostWave
           </h1>
-          <div className="w-32" /> {/* Spacer for centering */}
+          <UserMenu userEmail={user.email || ''} />
         </div>
       </nav>
 

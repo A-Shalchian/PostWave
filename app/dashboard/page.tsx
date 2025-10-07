@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import SignInButton from '@/components/SignInButton'
-import SignOutButton from '@/components/SignOutButton'
+import UserMenu from '@/components/UserMenu'
 import ConnectButton from '@/components/ConnectButton'
 import VideoUpload from '@/components/VideoUpload'
 import VideoList from '@/components/VideoList'
-import DeleteAccountButton from '@/components/DeleteAccountButton'
 
 type Connection = {
   platform: string
@@ -61,7 +60,7 @@ export default async function Dashboard() {
       <nav className="bg-slate-900/50 backdrop-blur-sm border-b border-slate-800 px-6 py-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">PostWave</h1>
-          {user && <SignOutButton />}
+          {user && <UserMenu userEmail={user.email || ''} />}
         </div>
       </nav>
 
@@ -176,17 +175,6 @@ export default async function Dashboard() {
                 hasYouTubeConnection={isConnected('youtube')}
               />
             )}
-
-            {/* Account Settings */}
-            <div className="bg-slate-900/50 backdrop-blur border border-slate-800 rounded-2xl p-8">
-              <h3 className="text-2xl font-semibold mb-2 text-white">Account Settings</h3>
-              <p className="text-slate-300 mb-6">
-                Manage your account and data
-              </p>
-              <div className="max-w-md">
-                <DeleteAccountButton />
-              </div>
-            </div>
           </div>
         )}
       </main>
