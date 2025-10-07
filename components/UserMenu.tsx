@@ -6,9 +6,10 @@ import SignOutButton from './SignOutButton'
 
 interface UserMenuProps {
   userEmail: string
+  avatarUrl?: string | null
 }
 
-export default function UserMenu({ userEmail }: UserMenuProps) {
+export default function UserMenu({ userEmail, avatarUrl }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -34,9 +35,19 @@ export default function UserMenu({ userEmail }: UserMenuProps) {
       {/* Avatar Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold flex items-center justify-center hover:from-cyan-600 hover:to-blue-700 transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg shadow-cyan-500/25"
+        className="w-10 h-10 rounded-full hover:scale-110 active:scale-95 shadow-lg shadow-cyan-500/25 transition-all duration-300 overflow-hidden"
       >
-        {getInitials(userEmail)}
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="Profile"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold flex items-center justify-center hover:from-cyan-600 hover:to-blue-700">
+            {getInitials(userEmail)}
+          </div>
+        )}
       </button>
 
       {/* Dropdown Menu */}
