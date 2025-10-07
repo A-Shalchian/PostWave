@@ -6,14 +6,17 @@
 -- ============================================
 
 -- RLS Policies for user_profiles
+DROP POLICY IF EXISTS "Users can view their own profile" ON user_profiles;
 CREATE POLICY "Users can view their own profile"
   ON user_profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
 CREATE POLICY "Users can update their own profile"
   ON user_profiles FOR UPDATE
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON user_profiles;
 CREATE POLICY "Users can insert their own profile"
   ON user_profiles FOR INSERT
   WITH CHECK (
@@ -23,52 +26,64 @@ CREATE POLICY "Users can insert their own profile"
   );
 
 -- RLS Policies for social_connections
+DROP POLICY IF EXISTS "Users can view their own connections" ON social_connections;
 CREATE POLICY "Users can view their own connections"
   ON social_connections FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own connections" ON social_connections;
 CREATE POLICY "Users can insert their own connections"
   ON social_connections FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own connections" ON social_connections;
 CREATE POLICY "Users can update their own connections"
   ON social_connections FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own connections" ON social_connections;
 CREATE POLICY "Users can delete their own connections"
   ON social_connections FOR DELETE
   USING (auth.uid() = user_id);
 
 -- RLS Policies for videos
+DROP POLICY IF EXISTS "Users can view their own videos" ON videos;
 CREATE POLICY "Users can view their own videos"
   ON videos FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own videos" ON videos;
 CREATE POLICY "Users can insert their own videos"
   ON videos FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own videos" ON videos;
 CREATE POLICY "Users can update their own videos"
   ON videos FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own videos" ON videos;
 CREATE POLICY "Users can delete their own videos"
   ON videos FOR DELETE
   USING (auth.uid() = user_id);
 
 -- RLS Policies for posts
+DROP POLICY IF EXISTS "Users can view their own posts" ON posts;
 CREATE POLICY "Users can view their own posts"
   ON posts FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own posts" ON posts;
 CREATE POLICY "Users can insert their own posts"
   ON posts FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own posts" ON posts;
 CREATE POLICY "Users can update their own posts"
   ON posts FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own posts" ON posts;
 CREATE POLICY "Users can delete their own posts"
   ON posts FOR DELETE
   USING (auth.uid() = user_id);
@@ -160,21 +175,9 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to delete video files from storage when video record is deleted
-CREATE OR REPLACE FUNCTION delete_video_file()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Delete the video file from storage
-  PERFORM storage.delete_object('videos', OLD.file_path);
-
-  -- Delete thumbnail if exists
-  IF OLD.thumbnail_path IS NOT NULL THEN
-    PERFORM storage.delete_object('videos', OLD.thumbnail_path);
-  END IF;
-
-  RETURN OLD;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Note: Video file deletion is handled in the API endpoint
+-- Database triggers cannot reliably call Supabase storage functions
+-- See app/api/videos/[id]/route.ts DELETE handler
 
 -- Function to clean up user data when user is deleted
 CREATE OR REPLACE FUNCTION cleanup_user_data()
@@ -183,14 +186,11 @@ BEGIN
   -- Note: Foreign key CASCADE will handle deleting records from:
   -- - user_profiles
   -- - social_connections
-  -- - videos (which triggers video file deletion)
+  -- - videos
   -- - posts
 
-  -- Delete all video files for this user from storage
-  -- This is a safety measure in case triggers don't fire
-  DELETE FROM storage.objects
-  WHERE bucket_id = 'videos'
-  AND name LIKE OLD.id || '/%';
+  -- Note: Storage cleanup should be handled by the application layer
+  -- before deleting the user account
 
   RETURN OLD;
 END;
@@ -235,45 +235,49 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================
 
 -- Triggers to update updated_at
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
 CREATE TRIGGER update_user_profiles_updated_at
   BEFORE UPDATE ON user_profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_social_connections_updated_at ON social_connections;
 CREATE TRIGGER update_social_connections_updated_at
   BEFORE UPDATE ON social_connections
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_videos_updated_at ON videos;
 CREATE TRIGGER update_videos_updated_at
   BEFORE UPDATE ON videos
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_posts_updated_at ON posts;
 CREATE TRIGGER update_posts_updated_at
   BEFORE UPDATE ON posts
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger to create profile on user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION handle_new_user();
 
--- Trigger to automatically delete video files when video record is deleted
-CREATE TRIGGER on_video_deleted
-  BEFORE DELETE ON videos
-  FOR EACH ROW
-  EXECUTE FUNCTION delete_video_file();
+-- Note: Video file deletion trigger removed - handled in API endpoint instead
+DROP TRIGGER IF EXISTS on_video_deleted ON videos;
 
 -- Trigger to clean up user data when auth.users record is deleted
+DROP TRIGGER IF EXISTS on_auth_user_deleted ON auth.users;
 CREATE TRIGGER on_auth_user_deleted
   BEFORE DELETE ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION cleanup_user_data();
 
 -- Trigger for social connection deletion logging
+DROP TRIGGER IF EXISTS on_social_connection_deleted ON social_connections;
 CREATE TRIGGER on_social_connection_deleted
   BEFORE DELETE ON social_connections
   FOR EACH ROW
