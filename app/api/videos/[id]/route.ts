@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 // Get a specific video
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const supabase = await createClient()
 
   // Check if user is authenticated
@@ -19,7 +20,7 @@ export async function GET(
     const { data: video, error } = await supabase
       .from('videos')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single()
 
@@ -40,8 +41,9 @@ export async function GET(
 // Delete a video
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const supabase = await createClient()
 
   // Check if user is authenticated
@@ -52,35 +54,12 @@ export async function DELETE(
   }
 
   try {
-    // Get video to find file path
-    const { data: video, error: fetchError } = await supabase
-      .from('videos')
-      .select('file_path')
-      .eq('id', params.id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Video not found' }, { status: 404 })
-      }
-      throw fetchError
-    }
-
-    // Delete from storage
-    const { error: storageError } = await supabase.storage
-      .from('videos')
-      .remove([video.file_path])
-
-    if (storageError) {
-      console.error('Storage delete error:', storageError)
-    }
-
     // Delete from database
+    // The on_video_deleted trigger will automatically delete files from storage
     const { error: deleteError } = await supabase
       .from('videos')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
 
     if (deleteError) {

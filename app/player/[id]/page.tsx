@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import VideoPlayer from '@/components/VideoPlayer'
 import DownloadButton from '@/components/DownloadButton'
+import DeleteVideoButton from '@/components/DeleteVideoButton'
 
 export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -127,15 +128,33 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
             {/* Actions */}
             <div className="bg-slate-900/50 backdrop-blur border border-slate-800 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Actions</h3>
+              <h3 className="text-lg font-semibold text-white mb-6">Actions</h3>
               <div className="space-y-3">
+                {/* Primary Action */}
                 <Link
                   href="/dashboard"
-                  className="block w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-cyan-600 hover:to-blue-700 transition-all duration-300 ease-out hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 cursor-pointer text-center"
+                  className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3.5 rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-700 transition-all duration-300 ease-out hover:scale-[1.02] active:scale-95 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
                 >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
                   Post to YouTube
                 </Link>
-                <DownloadButton videoUrl={urlData.signedUrl} fileName={video.file_name} />
+
+                {/* Secondary Actions */}
+                <div className="pt-2 border-t border-slate-800">
+                  <DownloadButton videoUrl={urlData.signedUrl} fileName={video.file_name} />
+                </div>
+
+                {/* Danger Zone */}
+                <div className="pt-3 border-t border-slate-800">
+                  <p className="text-xs text-slate-500 mb-2 font-medium">Danger Zone</p>
+                  <DeleteVideoButton
+                    videoId={video.id}
+                    videoTitle={video.title}
+                    redirectAfterDelete="/dashboard"
+                  />
+                </div>
               </div>
             </div>
           </div>
