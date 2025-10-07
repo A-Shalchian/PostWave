@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import DeleteAccountButton from './DeleteAccountButton'
 
 interface ProfileContentProps {
@@ -10,6 +12,7 @@ interface ProfileContentProps {
   }
   profile: {
     full_name: string | null
+    avatar_url?: string | null
   } | null
   connections: Array<{
     platform: string
@@ -25,6 +28,15 @@ interface ProfileContentProps {
 
 export default function ProfileContent({ user, profile, connections, stats }: ProfileContentProps) {
   const [activeTab, setActiveTab] = useState('account')
+  const [isEditing, setIsEditing] = useState(false)
+  const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -40,6 +52,122 @@ export default function ProfileContent({ user, profile, connections, stats }: Pr
       day: 'numeric',
       year: 'numeric'
     })
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!validTypes.includes(file.type)) {
+      setError('Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed')
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB')
+      return
+    }
+
+    setIsUploading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const response = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload avatar')
+      }
+
+      setAvatarUrl(data.avatar_url)
+      setSuccess('Avatar updated successfully!')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload avatar')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    if (!avatarUrl) return
+
+    setIsUploading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch('/api/profile/avatar', {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove avatar')
+      }
+
+      setAvatarUrl(null)
+      setSuccess('Avatar removed successfully!')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove avatar')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!fullName.trim()) {
+      setError('Full name cannot be empty')
+      return
+    }
+
+    setIsSaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch('/api/profile/update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ full_name: fullName })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile')
+      }
+
+      setSuccess('Profile updated successfully!')
+      setIsEditing(false)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profile')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setFullName(profile?.full_name || '')
+    setIsEditing(false)
+    setError(null)
+    setSuccess(null)
   }
 
   const tabs = [
@@ -95,19 +223,123 @@ export default function ProfileContent({ user, profile, connections, stats }: Pr
         {/* Account Tab */}
         {activeTab === 'account' && (
           <div className="space-y-8">
+            {/* Success/Error Messages */}
+            {(error || success) && (
+              <div className={`rounded-xl p-4 ${error ? 'bg-red-500/10 border border-red-500/20' : 'bg-green-500/10 border border-green-500/20'}`}>
+                <p className={`text-sm ${error ? 'text-red-400' : 'text-green-400'}`}>
+                  {error || success}
+                </p>
+              </div>
+            )}
+
             {/* Profile Info */}
             <div className="bg-slate-900/50 backdrop-blur border border-slate-800 rounded-2xl p-8">
-              <h3 className="text-2xl font-bold text-white mb-6">Profile Information</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">Profile Information</h3>
+                {!isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Profile
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-center gap-6 mb-8">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-3xl font-bold flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                  {user.email?.charAt(0).toUpperCase()}
+                <div className="relative">
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt="Profile"
+                      width={80}
+                      height={80}
+                      className="rounded-full object-cover shadow-lg shadow-cyan-500/25"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-3xl font-bold flex items-center justify-center shadow-lg shadow-cyan-500/25">
+                      {user.email?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  {isEditing && (
+                    <div className="absolute -bottom-2 -right-2 flex gap-1">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="w-8 h-8 rounded-full bg-cyan-500 hover:bg-cyan-600 text-white flex items-center justify-center transition-colors disabled:opacity-50"
+                        title="Change avatar"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                      {avatarUrl && (
+                        <button
+                          onClick={handleRemoveAvatar}
+                          disabled={isUploading}
+                          className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors disabled:opacity-50"
+                          title="Remove avatar"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
                 </div>
-                <div>
-                  <h4 className="text-2xl font-bold text-white">{profile?.full_name || 'User'}</h4>
-                  <p className="text-slate-400">{user.email}</p>
+                <div className="flex-1">
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Enter your full name"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white text-xl font-bold focus:outline-none focus:border-cyan-500"
+                        maxLength={100}
+                      />
+                      <p className="text-slate-400 text-sm">{user.email}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <h4 className="text-2xl font-bold text-white">{fullName || 'User'}</h4>
+                      <p className="text-slate-400">{user.email}</p>
+                    </>
+                  )}
                 </div>
               </div>
+
+              {isEditing && (
+                <div className="flex items-center gap-3 mb-6 pb-6 border-b border-slate-800">
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSaving || isUploading}
+                    className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isSaving || isUploading}
+                    className="px-6 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
