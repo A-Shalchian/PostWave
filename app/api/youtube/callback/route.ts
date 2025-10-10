@@ -21,9 +21,38 @@ export async function GET(request: NextRequest) {
   // Verify user is authenticated
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-  if (authError || !user || user.id !== state) {
+  if (authError || !user) {
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=unauthorized`)
   }
+
+  // Validate state token from database (CSRF protection)
+  const { data: stateRecord, error: stateError } = await supabase
+    .from('oauth_states')
+    .select('*')
+    .eq('state_token', state)
+    .eq('platform', 'youtube')
+    .single()
+
+  if (stateError || !stateRecord) {
+    console.error('Invalid OAuth state token:', stateError)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=invalid_state`)
+  }
+
+  // Check if state token has expired (10 minute timeout)
+  if (new Date(stateRecord.expires_at) < new Date()) {
+    // Clean up expired token
+    await supabase.from('oauth_states').delete().eq('state_token', state)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=state_expired`)
+  }
+
+  // Verify the state token belongs to the authenticated user
+  if (stateRecord.user_id !== user.id) {
+    console.error('State token user mismatch:', { stateUser: stateRecord.user_id, currentUser: user.id })
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=unauthorized`)
+  }
+
+  // Delete state token (single-use only - prevents replay attacks)
+  await supabase.from('oauth_states').delete().eq('state_token', state)
 
   try {
     // Exchange authorization code for tokens

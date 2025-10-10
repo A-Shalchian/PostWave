@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { randomBytes } from 'crypto'
 
 export async function GET() {
   const supabase = await createClient()
@@ -19,6 +20,25 @@ export async function GET() {
     return NextResponse.json({ error: 'TikTok OAuth not configured' }, { status: 500 })
   }
 
+  // Generate cryptographically secure random state token (CSRF protection)
+  const stateToken = randomBytes(32).toString('hex') // 64 character hex string
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
+
+  // Store state token in database (single-use, expires after 10 minutes)
+  const { error: stateError } = await supabase
+    .from('oauth_states')
+    .insert({
+      state_token: stateToken,
+      user_id: user.id,
+      platform: 'tiktok',
+      expires_at: expiresAt.toISOString()
+    })
+
+  if (stateError) {
+    console.error('Failed to store OAuth state:', stateError)
+    return NextResponse.json({ error: 'Failed to initialize OAuth' }, { status: 500 })
+  }
+
   // TikTok OAuth scopes
   const scopes = [
     'user.info.basic',
@@ -32,7 +52,7 @@ export async function GET() {
   authUrl.searchParams.set('redirect_uri', redirectUri)
   authUrl.searchParams.set('response_type', 'code')
   authUrl.searchParams.set('scope', scopes)
-  authUrl.searchParams.set('state', user.id) // Pass user ID for verification
+  authUrl.searchParams.set('state', stateToken) // Use secure random token instead of user ID
 
   return NextResponse.redirect(authUrl.toString())
 }
