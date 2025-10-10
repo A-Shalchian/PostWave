@@ -90,11 +90,13 @@ export async function POST(request: Request) {
       .from('avatars')
       .getPublicUrl(uploadData.path)
 
-    // Update user profile with new avatar URL
+    // Update user profile with new avatar URL (upsert to handle missing profiles)
     const { data: profile, error: updateError } = await supabase
       .from('user_profiles')
-      .update({ avatar_url: publicUrl })
-      .eq('id', user.id)
+      .upsert({
+        id: user.id,
+        avatar_url: publicUrl
+      })
       .select()
       .single()
 
@@ -153,11 +155,13 @@ export async function DELETE() {
       }
     }
 
-    // Remove avatar URL from profile
+    // Remove avatar URL from profile (upsert to handle missing profiles)
     const { data: profile, error: updateError } = await supabase
       .from('user_profiles')
-      .update({ avatar_url: null })
-      .eq('id', user.id)
+      .upsert({
+        id: user.id,
+        avatar_url: null
+      })
       .select()
       .single()
 
